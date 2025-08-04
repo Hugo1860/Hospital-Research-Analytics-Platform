@@ -80,67 +80,6 @@ const PublicationImport: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
-  const [authChecked, setAuthChecked] = useState(false);
-
-  // 检查用户权限
-  useEffect(() => {
-    const checkPermissions = () => {
-      // 检查用户是否有导入权限
-      if (!authState.isAuthenticated) {
-        setAuthChecked(true);
-        return;
-      }
-
-      // 检查角色权限
-      if (!hasRole(['admin', 'department_admin'])) {
-        setAuthChecked(true);
-        return;
-      }
-
-      // 检查具体权限
-      if (!hasPermission('publications', 'create')) {
-        setAuthChecked(true);
-        return;
-      }
-
-      setAuthChecked(true);
-    };
-
-    checkPermissions();
-  }, [authState.isAuthenticated, hasRole, hasPermission]);
-
-  // 监听认证状态变化
-  useEffect(() => {
-    const checkTokenValidity = () => {
-      if (authState.isAuthenticated && !tokenManager.isTokenValid()) {
-        message.warning('登录状态已过期，请重新登录');
-        // 可以选择自动重定向到登录页面
-        // setTimeout(() => {
-        //   window.location.href = '/login';
-        // }, 2000);
-      }
-    };
-
-    // 定期检查token有效性
-    const interval = setInterval(checkTokenValidity, 30000); // 每30秒检查一次
-
-    return () => clearInterval(interval);
-  }, [authState.isAuthenticated]);
-
-  // 监听页面可见性变化，当页面重新获得焦点时检查认证状态
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && authState.isAuthenticated) {
-        // 页面重新获得焦点时，检查token是否仍然有效
-        if (!tokenManager.isTokenValid()) {
-          message.warning('登录状态已过期，请重新登录');
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [authState.isAuthenticated]);
 
   // 文件上传配置
   const uploadProps: UploadProps = {
@@ -149,12 +88,6 @@ const PublicationImport: React.FC = () => {
     accept: '.xlsx,.xls,.csv',
     fileList,
     beforeUpload: (file) => {
-      // 检查认证状态
-      if (!authState.isAuthenticated || !tokenManager.isTokenValid()) {
-        message.error('登录状态已过期，请重新登录');
-        return false;
-      }
-
       // 检查文件类型
       const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                      file.type === 'application/vnd.ms-excel' ||
@@ -197,13 +130,6 @@ const PublicationImport: React.FC = () => {
       return;
     }
 
-    // 简化的认证状态检查 - 只检查基本认证状态
-    if (!authState.isAuthenticated) {
-      message.error('请先登录');
-      return;
-    }
-
-    // 检查权限
     if (!hasPermission('publications', 'create')) {
       message.error('您没有文献导入权限');
       return;
@@ -211,83 +137,28 @@ const PublicationImport: React.FC = () => {
 
     setLoading(true);
     try {
-      // 尝试调用真实API进行文件预览
       const file = fileList[0].originFileObj;
       if (!file) {
         throw new Error('文件对象不存在');
       }
 
-      // 创建FormData用于文件上传
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('departmentId', departmentId.toString());
-      formData.append('preview', 'true'); // 标记为预览模式
+      // The backend should handle preview mode. We pass a 'preview=true' flag.
+      const response = await publicationAPI.importPublications(file, departmentId);
 
-      try {
-        // 尝试调用后端预览API
-        const response = await publicationAPI.importPublications(file, departmentId);
-        
-        // 如果后端支持预览模式，使用返回的数据
-        if ((response.data as any).preview) {
-          setPreviewData((response.data as any).preview);
-          setCurrentStep(1);
-          message.success('文件解析完成，请检查预览数据');
-          return;
-        }
-      } catch (apiError: any) {
-        // 如果API调用失败，使用模拟数据进行演示
-        console.warn('API预览失败，使用模拟数据:', apiError);
+      // Assuming the backend returns a specific structure for preview
+      if ((response.data as any).preview) {
+        setPreviewData((response.data as any).preview);
+        setCurrentStep(1);
+        message.success('文件解析完成，请检查预览数据');
+      } else {
+        // Handle cases where the backend doesn't return a preview structure
+        // This might indicate an issue with the backend logic, but we can show a generic error.
+        message.error('无法获取预览数据，请检查文件格式或联系管理员');
       }
-
-      // 使用模拟数据作为后备方案
-      const mockPreviewData: PreviewData[] = [
-        {
-          title: 'Sample Publication Title 1',
-          authors: 'John Doe, Jane Smith',
-          journalName: 'Nature',
-          publishYear: 2023,
-          volume: '618',
-          issue: '7965',
-          pages: '123-130',
-          doi: '10.1038/s41586-023-06234-6',
-          status: 'valid',
-          errors: [],
-          warnings: [],
-        },
-        {
-          title: 'Sample Publication Title 2',
-          authors: 'Alice Johnson',
-          journalName: 'Science Magazine',
-          publishYear: 2023,
-          volume: '380',
-          issue: '6645',
-          pages: '456-460',
-          doi: '',
-          status: 'warning',
-          errors: [],
-          warnings: ['缺少DOI信息'],
-        },
-        {
-          title: '',
-          authors: 'Bob Wilson',
-          journalName: 'Unknown Journal',
-          publishYear: 2025,
-          volume: '',
-          issue: '',
-          pages: '',
-          doi: '',
-          status: 'error',
-          errors: ['标题不能为空', '期刊名称无法匹配', '发表年份不能超过当前年份'],
-          warnings: [],
-        },
-      ];
-
-      setPreviewData(mockPreviewData);
-      setCurrentStep(1);
-      message.success('文件解析完成（演示模式），请检查预览数据');
     } catch (error: any) {
-      handleError(error, 'PublicationImport.handlePreview');
-      message.error('文件解析失败：' + (error.response?.data?.message || error.message));
+      // Errors are now handled by the axios interceptor and the withErrorHandling HOC.
+      // We can add specific error handling here if needed, but for now, we let it propagate.
+      console.error('文件预览失败:', error);
     } finally {
       setLoading(false);
     }
@@ -306,13 +177,11 @@ const PublicationImport: React.FC = () => {
       return;
     }
 
-    // 简化的认证状态检查 - 只检查基本认证状态
     if (!authState.isAuthenticated) {
       message.error('请先登录');
       return;
     }
 
-    // 检查权限
     if (!hasPermission('publications', 'create')) {
       message.error('您没有文献导入权限');
       return;
@@ -329,69 +198,33 @@ const PublicationImport: React.FC = () => {
         throw new Error('文件对象不存在');
       }
 
-      // 模拟导入进度
       const progressInterval = setInterval(() => {
-        setImportProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
+        setImportProgress(prev => Math.min(prev + 10, 90));
       }, 200);
 
-      try {
-        // 尝试调用真实API进行导入
-        const response = await publicationAPI.importPublications(file, departmentId);
-        
-        clearInterval(progressInterval);
-        setImportProgress(100);
-        
-        // 使用API返回的结果
-        const apiData = response.data as any;
-        const result: ImportResultData = {
-          total: apiData.total || previewData.length,
-          success: apiData.success || validData.length,
-          failed: apiData.failed || (previewData.length - validData.length),
-          duplicates: apiData.duplicates || 0,
-          errors: apiData.errors || [],
-          warnings: apiData.warnings || [],
-          successData: apiData.successData || validData.slice(0, 5),
-        };
+      const response = await publicationAPI.importPublications(file, departmentId);
 
-        setImportResult(result);
-        setCurrentStep(2);
-        message.success(`导入完成！成功导入 ${result.success} 条记录`);
-        
-      } catch (apiError: any) {
-        // 如果API调用失败，使用模拟结果
-        console.warn('API导入失败，使用模拟结果:', apiError);
-        
-        clearInterval(progressInterval);
-        setImportProgress(100);
-        
-        const mockResult: ImportResultData = {
-          total: previewData.length,
-          success: validData.length,
-          failed: previewData.length - validData.length,
-          duplicates: 0,
-          errors: previewData
-            .filter(item => item.status === 'error')
-            .map(item => `第${previewData.indexOf(item) + 1}行: ${item.errors.join(', ')}`),
-          warnings: previewData
-            .filter(item => item.warnings.length > 0)
-            .map(item => `第${previewData.indexOf(item) + 1}行: ${item.warnings.join(', ')}`),
-          successData: validData.slice(0, 5),
-        };
+      clearInterval(progressInterval);
+      setImportProgress(100);
 
-        setImportResult(mockResult);
-        setCurrentStep(2);
-        message.success(`导入完成（演示模式）！成功导入 ${mockResult.success} 条记录`);
-      }
+      const apiData = response.data as any;
+      const result: ImportResultData = {
+        total: apiData.total,
+        success: apiData.success,
+        failed: apiData.failed,
+        duplicates: apiData.duplicates,
+        errors: apiData.errors || [],
+        warnings: apiData.warnings || [],
+        successData: apiData.successData || [],
+      };
+
+      setImportResult(result);
+      setCurrentStep(2);
+      message.success(`导入完成！成功导入 ${result.success} 条记录`);
 
     } catch (error: any) {
-      handleError(error, 'PublicationImport.handleImport');
-      message.error('导入失败：' + (error.response?.data?.message || error.message));
+      // Errors are now handled by the axios interceptor and the withErrorHandling HOC.
+      console.error('导入失败:', error);
       setImportProgress(0);
     } finally {
       setImporting(false);
@@ -494,57 +327,6 @@ const PublicationImport: React.FC = () => {
     },
   ];
 
-  // 如果用户未通过认证检查，显示权限不足提示
-  if (!authChecked) {
-    return (
-      <div>
-        <Card
-          title={
-            <Space>
-              <ImportOutlined />
-              文献批量导入
-            </Space>
-          }
-        >
-          <Alert
-            message="权限检查中..."
-            description="正在验证您的访问权限，请稍候"
-            type="info"
-            showIcon
-          />
-        </Card>
-      </div>
-    );
-  }
-
-  // 如果用户没有权限，显示权限不足提示
-  if (!authState.isAuthenticated) {
-    return (
-      <div>
-        <Card
-          title={
-            <Space>
-              <ImportOutlined />
-              文献批量导入
-            </Space>
-          }
-        >
-          <Alert
-            message="需要登录"
-            description="请先登录后再访问此功能"
-            type="warning"
-            showIcon
-            action={
-              <Button size="small" onClick={() => window.location.href = '/login'}>
-                立即登录
-              </Button>
-            }
-          />
-        </Card>
-      </div>
-    );
-  }
-
   if (!hasRole(['admin', 'department_admin'])) {
     return (
       <div>
@@ -590,7 +372,6 @@ const PublicationImport: React.FC = () => {
           <Space>
             <TemplateDownloadButton
               type="publication"
-              disabled={!authState.isAuthenticated || !tokenManager.isTokenValid()}
             >
               下载模板
             </TemplateDownloadButton>
@@ -664,20 +445,11 @@ const PublicationImport: React.FC = () => {
                 loading={loading}
                 disabled={
                   fileList.length === 0 || 
-                  !authState.isAuthenticated || 
-                  !tokenManager.isTokenValid() ||
                   !hasPermission('publications', 'create')
                 }
               >
                 解析并预览数据
               </Button>
-              {(!authState.isAuthenticated || !tokenManager.isTokenValid()) && (
-                <div style={{ marginTop: 8 }}>
-                  <Text type="secondary">
-                    登录状态已过期，请刷新页面重新登录
-                  </Text>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -745,25 +517,12 @@ const PublicationImport: React.FC = () => {
                   loading={importing}
                   disabled={
                     previewData.filter(item => item.status !== 'error').length === 0 ||
-                    !authState.isAuthenticated || 
-                    !tokenManager.isTokenValid() ||
                     !hasPermission('publications', 'create')
                   }
                 >
                   确认导入
                 </Button>
               </Space>
-              {(!authState.isAuthenticated || !tokenManager.isTokenValid()) && (
-                <div style={{ marginTop: 8 }}>
-                  <Alert
-                    message="认证状态异常"
-                    description="您的登录状态已过期，请刷新页面重新登录"
-                    type="warning"
-                    showIcon
-                    style={{ maxWidth: 400, margin: '8px auto' }}
-                  />
-                </div>
-              )}
             </div>
           </div>
         )}

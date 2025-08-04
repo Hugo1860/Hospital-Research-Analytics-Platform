@@ -102,72 +102,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // 登录函数
   const login = async (username: string, password: string): Promise<boolean> => {
+    dispatch({ type: 'LOGIN_START' });
     try {
-      dispatch({ type: 'LOGIN_START' });
+      const response = await authAPI.login({ username, password });
+      const { user, token } = response.data.data || response.data;
       
-      // 优先尝试真实API登录
-      try {
-        const response = await authAPI.login({ username, password });
-        const { user, token } = response.data.data || response.data;
-        
-        // 默认24小时过期时间
-        const expiry = Date.now() + 24 * 60 * 60 * 1000;
+      // 默认24小时过期时间
+      const expiry = Date.now() + 24 * 60 * 60 * 1000;
 
-        // 使用TokenManager保存token
-        TokenManager.setToken(token, expiry);
-        
-        dispatch({
-          type: 'LOGIN_SUCCESS',
-          payload: { user, token, expiry },
-        });
+      // 使用TokenManager保存token
+      TokenManager.setToken(token, expiry);
 
-        message.success('登录成功');
-        return true;
-      } catch (apiError: any) {
-        console.log('🔄 真实API登录失败，尝试模拟登录模式:', apiError.message);
-        
-        // 如果真实API失败，尝试模拟登录模式
-        if (username === 'admin' && password === 'password123') {
-          const mockUser: User = {
-            id: 1,
-            username: 'admin',
-            email: 'admin@hospital.com',
-            role: 'admin',
-            departmentId: 1,
-            department: {
-              id: 1,
-              name: '系统管理科',
-              code: 'ADMIN'
-            },
-            isActive: true,
-            lastLoginAt: new Date().toISOString()
-          };
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: { user, token, expiry },
+      });
 
-          const mockToken = 'mock-jwt-token-for-demo';
-          const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24小时过期
-          
-          // 使用TokenManager保存token
-          TokenManager.setToken(mockToken, expiry);
-          
-          dispatch({
-            type: 'LOGIN_SUCCESS',
-            payload: { user: mockUser, token: mockToken, expiry },
-          });
-
-          message.success('登录成功（演示模式）');
-          return true;
-        } else {
-          // 既不是真实API成功，也不是有效的模拟登录
-          dispatch({ type: 'LOGIN_FAILURE' });
-          const errorMessage = apiError.response?.data?.error || '登录失败，请检查用户名和密码';
-          message.error(errorMessage);
-          return false;
-        }
-      }
+      message.success('登录成功');
+      return true;
     } catch (error: any) {
       dispatch({ type: 'LOGIN_FAILURE' });
+      // The error is already handled by the API interceptor, so we don't need to show another message here.
+      // We just ensure the state is updated correctly.
       console.error('登录过程异常:', error);
-      message.error('登录过程出现异常，请稍后重试');
       return false;
     }
   };
@@ -202,12 +159,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       if (!TokenManager.isTokenValid()) {
         return false;
-      }
-
-      // 如果是模拟token，直接返回true
-      const token = TokenManager.getToken();
-      if (token === 'mock-jwt-token-for-demo') {
-        return true;
       }
 
       // 调用后端验证token
@@ -293,34 +244,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
           dispatch({ type: 'SET_LOADING', payload: true });
           
-          // 如果是模拟token，直接使用模拟用户
-          if (token === 'mock-jwt-token-for-demo') {
-            const mockUser: User = {
-              id: 1,
-              username: 'admin',
-              email: 'admin@hospital.com',
-              role: 'admin',
-              departmentId: 1,
-              department: {
-                id: 1,
-                name: '系统管理科',
-                code: 'ADMIN'
-              },
-              isActive: true,
-              lastLoginAt: new Date().toISOString()
-            };
-
-            dispatch({
-              type: 'LOGIN_SUCCESS',
-              payload: { 
-                user: mockUser, 
-                token,
-                expiry: TokenManager.getTokenExpiry() || undefined 
-              },
-            });
-            return;
-          }
-          
           const response = await authAPI.getCurrentUser();
           const user = response.data.data.user;
 
@@ -403,36 +326,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const token = TokenManager.getToken();
         if (!token) {
           console.warn('[AuthContext] 跨标签页同步时未找到token');
-          return;
-        }
-
-        // 如果是模拟token，使用模拟用户信息
-        if (token === 'mock-jwt-token-for-demo') {
-          const mockUser: User = {
-            id: 1,
-            username: 'admin',
-            email: 'admin@hospital.com',
-            role: 'admin',
-            departmentId: 1,
-            department: {
-              id: 1,
-              name: '系统管理科',
-              code: 'ADMIN'
-            },
-            isActive: true,
-            lastLoginAt: new Date().toISOString()
-          };
-
-          dispatch({
-            type: 'LOGIN_SUCCESS',
-            payload: { 
-              user: mockUser, 
-              token,
-              expiry: TokenManager.getTokenExpiry() || undefined 
-            },
-          });
-          
-          message.success('已同步其他标签页的登录状态', 2);
           return;
         }
 
