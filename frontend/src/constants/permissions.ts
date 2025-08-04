@@ -1,0 +1,119 @@
+// 用户角色定义
+export const ROLES = {
+  ADMIN: 'admin',
+  DEPARTMENT_ADMIN: 'department_admin',
+  USER: 'user',
+} as const;
+
+// 资源定义
+export const RESOURCES = {
+  USERS: 'users',
+  DEPARTMENTS: 'departments',
+  PUBLICATIONS: 'publications',
+  JOURNALS: 'journals',
+  STATISTICS: 'statistics',
+  REPORTS: 'reports',
+  SETTINGS: 'settings',
+} as const;
+
+// 操作定义
+export const ACTIONS = {
+  CREATE: 'create',
+  READ: 'read',
+  UPDATE: 'update',
+  DELETE: 'delete',
+  IMPORT: 'import',
+  EXPORT: 'export',
+} as const;
+
+// 权限组合定义
+export const PERMISSIONS = {
+  // 用户管理权限
+  USER_CREATE: { resource: RESOURCES.USERS, action: ACTIONS.CREATE },
+  USER_READ: { resource: RESOURCES.USERS, action: ACTIONS.READ },
+  USER_UPDATE: { resource: RESOURCES.USERS, action: ACTIONS.UPDATE },
+  USER_DELETE: { resource: RESOURCES.USERS, action: ACTIONS.DELETE },
+
+  // 科室管理权限
+  DEPARTMENT_CREATE: { resource: RESOURCES.DEPARTMENTS, action: ACTIONS.CREATE },
+  DEPARTMENT_READ: { resource: RESOURCES.DEPARTMENTS, action: ACTIONS.READ },
+  DEPARTMENT_UPDATE: { resource: RESOURCES.DEPARTMENTS, action: ACTIONS.UPDATE },
+  DEPARTMENT_DELETE: { resource: RESOURCES.DEPARTMENTS, action: ACTIONS.DELETE },
+
+  // 文献管理权限
+  PUBLICATION_CREATE: { resource: RESOURCES.PUBLICATIONS, action: ACTIONS.CREATE },
+  PUBLICATION_READ: { resource: RESOURCES.PUBLICATIONS, action: ACTIONS.READ },
+  PUBLICATION_UPDATE: { resource: RESOURCES.PUBLICATIONS, action: ACTIONS.UPDATE },
+  PUBLICATION_DELETE: { resource: RESOURCES.PUBLICATIONS, action: ACTIONS.DELETE },
+  PUBLICATION_IMPORT: { resource: RESOURCES.PUBLICATIONS, action: ACTIONS.IMPORT },
+  PUBLICATION_EXPORT: { resource: RESOURCES.PUBLICATIONS, action: ACTIONS.EXPORT },
+
+  // 期刊管理权限
+  JOURNAL_CREATE: { resource: RESOURCES.JOURNALS, action: ACTIONS.CREATE },
+  JOURNAL_READ: { resource: RESOURCES.JOURNALS, action: ACTIONS.READ },
+  JOURNAL_UPDATE: { resource: RESOURCES.JOURNALS, action: ACTIONS.UPDATE },
+  JOURNAL_DELETE: { resource: RESOURCES.JOURNALS, action: ACTIONS.DELETE },
+  JOURNAL_IMPORT: { resource: RESOURCES.JOURNALS, action: ACTIONS.IMPORT },
+  JOURNAL_EXPORT: { resource: RESOURCES.JOURNALS, action: ACTIONS.EXPORT },
+
+  // 统计分析权限
+  STATISTICS_READ: { resource: RESOURCES.STATISTICS, action: ACTIONS.READ },
+  STATISTICS_EXPORT: { resource: RESOURCES.STATISTICS, action: ACTIONS.EXPORT },
+
+  // 报告生成权限
+  REPORT_CREATE: { resource: RESOURCES.REPORTS, action: ACTIONS.CREATE },
+  REPORT_READ: { resource: RESOURCES.REPORTS, action: ACTIONS.READ },
+  REPORT_DELETE: { resource: RESOURCES.REPORTS, action: ACTIONS.DELETE },
+  REPORT_EXPORT: { resource: RESOURCES.REPORTS, action: ACTIONS.EXPORT },
+
+  // 系统设置权限
+  SETTINGS_READ: { resource: RESOURCES.SETTINGS, action: ACTIONS.READ },
+  SETTINGS_UPDATE: { resource: RESOURCES.SETTINGS, action: ACTIONS.UPDATE },
+} as const;
+
+// 角色权限映射
+export const ROLE_PERMISSIONS = {
+  [ROLES.ADMIN]: [
+    // 管理员拥有所有权限
+    ...Object.values(PERMISSIONS),
+  ],
+  
+  [ROLES.DEPARTMENT_ADMIN]: [
+    // 科室管理员权限
+    PERMISSIONS.PUBLICATION_CREATE,
+    PERMISSIONS.PUBLICATION_READ,
+    PERMISSIONS.PUBLICATION_UPDATE,
+    PERMISSIONS.PUBLICATION_DELETE,
+    PERMISSIONS.PUBLICATION_IMPORT,
+    PERMISSIONS.PUBLICATION_EXPORT,
+    PERMISSIONS.JOURNAL_READ,
+    PERMISSIONS.STATISTICS_READ,
+    PERMISSIONS.STATISTICS_EXPORT,
+    PERMISSIONS.REPORT_CREATE,
+    PERMISSIONS.REPORT_READ,
+    PERMISSIONS.REPORT_EXPORT,
+  ],
+  
+  [ROLES.USER]: [
+    // 普通用户权限
+    PERMISSIONS.PUBLICATION_READ,
+    PERMISSIONS.JOURNAL_READ,
+    PERMISSIONS.STATISTICS_READ,
+    PERMISSIONS.REPORT_READ,
+  ],
+} as const;
+
+// 页面权限配置
+export const PAGE_PERMISSIONS = {
+  '/dashboard': [],
+  '/publications': [PERMISSIONS.PUBLICATION_READ],
+  '/publications/add': [PERMISSIONS.PUBLICATION_CREATE],
+  '/publications/import': [PERMISSIONS.PUBLICATION_IMPORT],
+  '/journals': [PERMISSIONS.JOURNAL_READ],
+  '/journals/import': [PERMISSIONS.JOURNAL_IMPORT],
+  '/statistics': [PERMISSIONS.STATISTICS_READ],
+  '/reports': [PERMISSIONS.REPORT_READ],
+  '/reports/generate': [PERMISSIONS.REPORT_CREATE],
+  '/settings': [PERMISSIONS.SETTINGS_READ],
+  '/settings/users': [PERMISSIONS.USER_READ],
+} as const;

@@ -1,0 +1,33 @@
+{
+  "name": "hospital-journal-system",
+  "version": "2.0.0",
+  "description": "协和医院SCI期刊分析系统",
+  "main": "start-all.js",
+  "scripts": {
+    "start": "node start-all.js",
+    "dev": "node start-all.js",
+    "stop": "pkill -f 'npm start' || true",
+    "clean": "npm run stop && rm -rf backend/node_modules frontend/node_modules",
+    "setup": "cd backend && npm install && cd ../frontend && npm install",
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm start",
+    "test": "cd backend && npm test && cd ../frontend && npm test",
+    "build": "cd frontend && npm run build",
+    "deploy": "./scripts/deploy.sh"
+  },
+  "keywords": [
+    "hospital",
+    "journal",
+    "sci",
+    "statistics",
+    "analysis"
+  ],
+  "author": "协和医院",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
